@@ -32,7 +32,11 @@ Function Update-PSMConfigureApplocker {
         #(Note: Wildcards not supported at this time)
         # @("C:\Windows\File1.exe","C:\Windows\system32\File2.dll","C:\Program Files (x86)\Folder\File3.exe")
         [string[]]
-        $ignorePath
+        $ignorePath,
+        #String with the location of thr PSMConfigureAppLocker.xml file
+        [string]
+        [Parameter(Mandatory=$true)]
+        $PSMConfigureApplockerXML=".\PSMConfigureAppLocker.xml"
     )
 
     [string[]]$DefaultIgnoreFile = @("CMD.EXE", "CTFMON.EXE", "SETHC.EXE", "TASKFLOWUI.DLL")
@@ -84,7 +88,7 @@ Function Update-PSMConfigureApplocker {
     $arrExeApps
 
     $xmlDoc = New-Object System.Xml.XmlDocument
-    $xmlDoc.Load(".\PSMConfigureAppLocker.xml")
+    $xmlDoc.Load($PSMConfigureApplockerXML)
 
     $arrElem.SelectNodes("Application") | ForEach-Object {
         if (![string]::IsNullOrEmpty($PSItem.SessionType)) {
