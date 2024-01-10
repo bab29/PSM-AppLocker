@@ -32,7 +32,10 @@ Function Update-PSMConfigureApplocker {
         #(Note: Wildcards not supported at this time)
         # @("C:\Windows\File1.exe","C:\Windows\system32\File2.dll","C:\Program Files (x86)\Folder\File3.exe")
         [string[]]
-        $ignorePath
+        $ignorePath,
+        #Location of PSMConfigureAppLocker.xml
+        [string]
+        $PSMConfigureAppLocker = ".\PSMConfigureAppLocker.xml"
         
     )
 
@@ -107,7 +110,7 @@ Function Update-PSMConfigureApplocker {
     $arrExeApps
 
     $xmlDoc = New-Object System.Xml.XmlDocument
-    $xmlDoc.Load(".\PSMConfigureAppLocker.xml")
+    $xmlDoc.Load($PSMConfigureAppLocker)
 
     $arrElem.SelectNodes("Application") | ForEach-Object {
         if (![string]::IsNullOrEmpty($PSItem.SessionType)) {
@@ -138,6 +141,6 @@ Function Update-PSMConfigureApplocker {
             $node.InsertAfter($app, $node.Libraries[$($node.Libraries.Count - 1)])  *> $null
         }
     }
-    $xmldoc.save(".\PSMConfigureAppLocker_Update.xml")
+    $xmldoc.save("$(Split-Path $PSMConfigureAppLocker -Parent)\PSMConfigureAppLocker_Update.xml")
     Write-Host "Please review PSMConfigureAppLocker_Update.xml prior to import"
 }
