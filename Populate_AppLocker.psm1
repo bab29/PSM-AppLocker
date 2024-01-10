@@ -14,11 +14,14 @@ Function Update-PSMConfigureApplocker {
         [Parameter(Mandatory = $true)]
         [string]
         $PSMAdminConnect,
+        #Location of PSMConfigureAppLocker.xml
+        [string]
+        $PSMConfigureAppLocker = ".\PSMConfigureAppLocker.xml",
         <# 
         In order to generate the required CSV run the following PowerShell commands on the PSM after attempting to use the connector
 
-        function sid { Param($iD) ($(New-Object System.Security.Principal.SecurityIdentifier($iD)).Translate([System.Security.Principal.NTAccount]))}
-        Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" |Where-Object {$_.LevelDisplayName -ne "Information"} |Select-Object -Property TimeCreated,  @{label="User";expression={SID($_.UserID)}}, Message |Export-Csv .\AppLocker.csv -NoTypeInformation
+        Function Get-UserFromSID { Param($SID) ($(New-Object System.Security.Principal.SecurityIdentifier($SID)).Translate([System.Security.Principal.NTAccount]))}
+        Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" |Where-Object {$_.LevelDisplayName -ne "Information"} |Select-Object -Property TimeCreated,  @{label="User";expression={Get-UserFromSID($_.UserID)}}, Message |Export-Csv .\AppLocker.csv -NoTypeInformation
         
         #>
         [string]
@@ -32,11 +35,7 @@ Function Update-PSMConfigureApplocker {
         #(Note: Wildcards not supported at this time)
         # @("C:\Windows\File1.exe","C:\Windows\system32\File2.dll","C:\Program Files (x86)\Folder\File3.exe")
         [string[]]
-        $ignorePath,
-        #Location of PSMConfigureAppLocker.xml
-        [string]
-        $PSMConfigureAppLocker = ".\PSMConfigureAppLocker.xml"
-        
+        $ignorePath
     )
 
     [string[]]$DefaultIgnoreFile = @("CMD.EXE", "CTFMON.EXE", "SETHC.EXE", "TASKFLOWUI.DLL", "ACLAYERS.DLL")
@@ -101,7 +100,7 @@ Function Update-PSMConfigureApplocker {
 
         $elem.SetAttribute('Name', $(Split-Path $_.file -Leaf))
         $elem.SetAttribute('Method', 'Path')
-        $elem.SetAttribute('Path',  $(ConvertPath($PSItem.File)))
+        $elem.SetAttribute('Path', $(ConvertPath($PSItem.File)))
         $doc.AppendChild($elem) *> $null
         $arrExeApps += $doc.InnerXml
         $arrElem += $doc
@@ -143,4 +142,57 @@ Function Update-PSMConfigureApplocker {
     }
     $xmldoc.save("$(Split-Path $PSMConfigureAppLocker -Parent)\PSMConfigureAppLocker_Update.xml")
     Write-Host "Please review PSMConfigureAppLocker_Update.xml prior to import"
+}
+
+Function Export-AppLockerLog {
+    
+    <#
+        .SYNOPSIS
+        Exports AppLocker reports required for Update-PSMConfigureApplocker
+        .DESCRIPTION
+        Exports AppLocker reports required for Update-PSMConfigureApplocker
+    #>
+    param (
+        #Filename to use for AppLocker Report
+        [string]
+        $ApplockerReportCSV = ".\AppLocker.csv"
+    )
+    Function Get-UserFromSID {
+        <#
+            .SYNOPSIS
+            Translate SID to String
+            .DESCRIPTION
+            Translate SID to String
+        #> 
+        Param(
+            #SID to translate
+            [Parameter(Mandatory = $true)]
+            [string]    
+            $SID
+        ) 
+        Return $(New-Object System.Security.Principal.SecurityIdentifier($SID)).Translate([System.Security.Principal.NTAccount])
+    }
+
+    Get-WinEvent -LogName "Microsoft-Windows-AppLocker/EXE and DLL" | `
+            Where-Object { $_.LevelDisplayName -ne "Information" } | `
+            Select-Object -Property TimeCreated, @{label = "User"; expression = { Get-UserFromSID($_.UserID) } }, Message | `
+            Export-Csv $ApplockerReportCSV -NoTypeInformation
+}     
+
+
+Function Set-AppLockerLogsSize {
+    <#
+        .SYNOPSIS
+        Set maximum log file size for applocker
+        .DESCRIPTION
+        Set maximum log file size for applocker
+    #> 
+    Param(
+        #Size in MB
+        [int]    
+        $LogSizeMB = 1
+    ) 
+    $appLockerLog = Get-WinEvent -ListLog "Microsoft-Windows-AppLocker/EXE and DLL"
+    $appLockerLog.MaximumSizeInBytes = $($LogSize*1048576)
+    $appLockerLog.SaveChanges()
 }
